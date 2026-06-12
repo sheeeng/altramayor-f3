@@ -248,6 +248,39 @@ not_found:
 	return false;
 }
 
+static bool is_block_from_cache(const struct rdwr_info *rwi, uint64_t block)
+{
+	if (rwi->cache_size_block == 0)
+		return false;
+	assert(block < rwi->cache_pos + rwi->cache_size_block);
+	return block >= rwi->cache_pos;
+}
+
+static void cb_bad_block_info(const progress_cb cb, const unsigned int indent,
+	const struct def_x_block *x_block, const struct x_block_found *xbf,
+	const struct device *dev, const struct rdwr_info *rwi)
+{
+	if (xbf->state == bs_overwritten) {
+		const unsigned int block_order = dev_get_block_order(dev);
+		const unsigned int block_size = dev_get_block_size(dev);
+		const uint64_t found_block = xbf->found_offset >> block_order;
+
+		assert((xbf->found_offset & (block_size - 1)) == 0);
+
+		if (is_block_from_cache(rwi, found_block)) {
+			cb(indent, "INFO: Block %" PRIu64 " comes from the cache block %" PRIu64 "\n",
+				x_block->pos, found_block);
+		} else {
+			cb(indent, "INFO: Block %" PRIu64 " overwrites block %" PRIu64 "\n",
+				found_block, x_block->pos);
+		}
+		return;
+	}
+
+	cb(indent, "INFO: Block %" PRIu64 " is %s\n",
+		x_block->pos, block_state_to_str(xbf->state));
+}
+
 static int find_first_bad_block(struct device *dev, const uint64_t pos[],
 	uint32_t n_pos, bool *pany_bad, uint64_t *pbad_pos,
 	struct rdwr_info *rwi, progress_cb cb, unsigned int indent)
@@ -269,8 +302,7 @@ static int find_first_bad_block(struct device *dev, const uint64_t pos[],
 	*pany_bad = i < n_pos;
 	if (*pany_bad) {
 		*pbad_pos = x_blocks[i].pos;
-		cb(indent, "INFO: Block %" PRIu64 " is %s!\n",
-			*pbad_pos, block_state_to_str(xbf.state));
+		cb_bad_block_info(cb, indent, &x_blocks[i], &xbf, dev, rwi);
 	}
 	return false;
 }
