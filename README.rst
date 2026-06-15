@@ -90,9 +90,13 @@ To build f3probe, f3fix, and f3brew, see section "The extra applications for Lin
 Compile stable software on FreeBSD
 ----------------------------------
 
+Install the following dependencies::
+
+    sudo pkg install argp-standalone gmake
+
 To build::
 
-    make
+    gmake
 
 If you want to install f3write and f3read, run the following command::
 
